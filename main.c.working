@@ -1,0 +1,93 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <time.h>
+
+#define sat 100
+
+struct Param{
+	double kp;
+	double ki;
+	double kd;
+	double interval;
+	double set;
+};
+
+struct DynPar{
+	double error;
+	double d_err;
+	double l_err;
+	double err_sum;
+	clock_t prev;
+	int res;
+};
+
+int reg(double *val, struct DynPar *pdp, struct Param *ppt){
+	clock_t now = clock();
+	if(((double)(now-pdp->prev))/CLOCKS_PER_SEC >= ppt->interval){
+		(*pdp).error = ppt->set-*val;
+		(*pdp).err_sum = (*pdp).err_sum + (*pdp).error;
+		(*pdp).d_err = (*pdp).error - (*pdp).l_err;
+		(*pdp).l_err = (*pdp).error;
+		(*pdp).prev = now;
+		(*pdp).res = (int)(ppt->kp*pdp->error+(((ppt->ki*pdp->err_sum)<-sat)?-sat:((ppt->ki*pdp->err_sum)>sat?sat:(ppt->ki*pdp->err_sum)))+ppt->kd*pdp->l_err);
+		return ((pdp->res)<-sat)?-sat:(((pdp->res)>sat)?sat:pdp->res);
+	}
+	return -1;
+}
+
+struct Param *allocParams(double val1, double val2, double val3, double val4, double val5){
+	struct Param *ppt;
+	ppt = malloc(sizeof(struct Param));
+	ppt->kp = val1;
+	ppt->ki = val2;
+	ppt->kd = val3;
+	ppt->interval = val4;
+	ppt->set = val5;
+	return ppt;
+}
+
+struct DynPar *allocDynPar(clock_t *initVal){
+	struct DynPar *pdp;
+	pdp = malloc(sizeof(struct DynPar));
+	pdp->l_err = 0;
+	pdp->err_sum = 0;
+	pdp->prev = *initVal;
+	pdp->error = 0;
+	pdp->d_err = 0;
+	return pdp;
+}
+
+int main(){
+	
+	double meas = 5;
+	double meas2 = 5;
+	clock_t t1 = clock();
+	struct Param *ppt = allocParams(5.0,5.0,5.0,0.01,3.0);
+	struct DynPar *pdp = allocDynPar(&t1);
+	struct Param *ppt2 = allocParams(2.0,2.0,2.0,0.01,3.0);
+	struct DynPar *pdp2 = allocDynPar(&t1);
+	//Game-loop
+	int temp = 0;
+	int temp2 = 0;
+	int j = 0; 
+	while(1){
+		temp = reg(&meas, pdp, ppt);
+		temp2 = reg(&meas2, pdp2,ppt2);
+		if(temp == -1){
+			//waste cycles
+		}else{
+			printf("%d\n", temp);
+			printf("%d\n", temp2);
+			j++;
+		}
+		if(j >10){
+			break;
+		}
+	}
+		
+	free(ppt);
+	free(pdp);
+	free(ppt2);
+	free(pdp2);
+	return 0;
+}
